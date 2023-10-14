@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.13)
+
+project(spriteBounce)
+add_executable(spriteBounce "src/main.cpp")
+target_include_directories(spriteBounce PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include/")
