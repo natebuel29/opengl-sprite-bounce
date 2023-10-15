@@ -1,13 +1,25 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.16)
 
 project(spriteBounce)
-add_executable(spriteBounce "src/main.cpp")
+
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(thirdparty/glfw-3.3.8)
+add_subdirectory(thirdparty/glfw-3.3.8)	
 
-target_sources("${CMAKE_PROJECT_NAME}" PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
-target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE  glfw)
 
+# Define MY_SOURCES to be a list of all the source files for my game 
+file(GLOB_RECURSE MY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
+
+
+add_executable("${CMAKE_PROJECT_NAME}")
+
+set_property(TARGET "${CMAKE_PROJECT_NAME}" PROPERTY CXX_STANDARD 17)
+
+
+target_sources("${CMAKE_PROJECT_NAME}" PRIVATE ${MY_SOURCES} )
+
+find_package(OpenGL REQUIRED)
+
+target_link_libraries("${CMAKE_PROJECT_NAME}" PRIVATE glfw OpenGL::GL )
