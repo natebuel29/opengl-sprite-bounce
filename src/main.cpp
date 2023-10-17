@@ -1,6 +1,9 @@
-#include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include "shader.h"
+#include <iostream>
+#include <fstream>
+#include <string>
 
 // #############################################################################
 //                           Globals
@@ -12,6 +15,11 @@
 
 struct OpenGLContext
 {
+    GLuint vaoID;
+    GLuint programID;
+    GLuint vertexShaderID;
+    GLuint fragmentShaderID;
+    Shader shader;
 };
 
 // #############################################################################
@@ -54,11 +62,18 @@ int main()
 
     glViewport(0, 0, 768, 768);
 
+    OpenGLContext glContext = {};
+    glInit(&glContext);
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
         /* Render here */
+        glClearColor(0, 0, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(glContext.shader.getProgramID());
+        glBindVertexArray(glContext.vaoID);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
 
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
@@ -76,22 +91,33 @@ int main()
 
 void glInit(OpenGLContext *glContext)
 {
+
+    glContext->programID = glCreateProgram();
+
+    // Shaders
+    {
+        Shader shader = Shader("assets/shaders/shader.vs", "assets/shaders/shader.fs");
+        glContext->shader = shader;
+        glUseProgram(glContext->shader.getProgramID());
+    }
+
     float verticies[] = {
         -0.5f, -0.5f, 0.0f,
         0.5f, -0.5f, 0.0f,
         0.0f, 0.5f, 0.0f};
 
-    GLuint VBO, VAO;
+    GLuint VBO;
 
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
+    glGenVertexArrays(1, &glContext->vaoID);
+    glBindVertexArray(glContext->vaoID);
 
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verticies), verticies, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verticies), verticies, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+    glEnableVertexAttribArray(0);
 }
 
 void window_size_callback(GLFWwindow *window, int width, int height)
