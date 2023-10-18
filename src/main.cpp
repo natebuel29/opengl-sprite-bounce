@@ -1,5 +1,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #include "shader.h"
 #include <iostream>
 #include <fstream>
@@ -17,9 +19,16 @@ struct OpenGLContext
 {
     GLuint vaoID;
     GLuint programID;
-    GLuint vertexShaderID;
-    GLuint fragmentShaderID;
+    GLuint textureID;
     Shader shader;
+};
+
+struct Transform
+{
+    int sizeX;
+    int sizeY;
+    float xPos;
+    float yPos;
 };
 
 // #############################################################################
@@ -73,7 +82,7 @@ int main()
 
         glUseProgram(glContext.shader.getProgramID());
         glBindVertexArray(glContext.vaoID);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
@@ -83,8 +92,6 @@ int main()
     }
 
     glfwTerminate();
-
-    std::cout << "Init cmake and glfw" << std::endl;
 
     return 0;
 }
@@ -101,10 +108,52 @@ void glInit(OpenGLContext *glContext)
         glUseProgram(glContext->shader.getProgramID());
     }
 
+    //     float verticies[] = {
+    // // first triangle
+    //     0.25f, 0.55f, 0.0f,                 1.0f, 1.0f,
+    //     0.25f, -0.25f, 0.0f,                1.0f, 0.0f,
+    //     -0.25f, 0.55f, 0.0f,                0.0f, 1.0f,
+    //  //      second triangle
+    //     0.25f, -0.25f, 0.0f,                1.0f, 0.0f,
+    //     -0.25f, -0.25f, 0.0f,               0.0f, 0.0f,
+    //     -0.25f, 0.55f, 0.0f                 ,0.0f, 1.0f,
+    // };
+
+    // my verticies won't lay out nice so :(
     float verticies[] = {
-        -0.5f, -0.5f, 0.0f,
-        0.5f, -0.5f, 0.0f,
-        0.0f, 0.5f, 0.0f};
+        // first triangle
+        0.25f,
+        0.55f,
+        0.0f,
+        1.0f,
+        1.0f,
+        0.25f,
+        -0.25f,
+        0.0f,
+        1.0f,
+        0.0f,
+        -0.25f,
+        0.55f,
+        0.0f,
+        0.0f,
+        1.0f,
+        //      second triangle
+        0.25f,
+        -0.25f,
+        0.0f,
+        1.0f,
+        0.0f,
+        -0.25f,
+        -0.25f,
+        0.0f,
+        0.0f,
+        0.0f,
+        -0.25f,
+        0.55f,
+        0.0f,
+        0.0f,
+        1.0f,
+    };
 
     GLuint VBO;
 
@@ -116,8 +165,40 @@ void glInit(OpenGLContext *glContext)
 
     glBufferData(GL_ARRAY_BUFFER, sizeof(verticies), verticies, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (void *)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    // Texture
+    {
+        // use stbi library to load image
+        int width, height, nrChannels;
+        stbi_set_flip_vertically_on_load(1);
+        unsigned char *data = stbi_load("assets/textures/burnt_chili.jpg", &width, &height, &nrChannels, 0);
+        if (data)
+        {
+
+            glGenTextures(1, &glContext->textureID);
+            glBindTexture(GL_TEXTURE_2D, glContext->textureID);
+            glActiveTexture(GL_TEXTURE0); // activate the texture unit first before binding texture
+            glBindTexture(GL_TEXTURE_2D, glContext->textureID);
+            // set the texture wrapping/filtering options (on the currently bound texture object)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+        }
+        else
+        {
+            std::cout << "failed to load texture" << std::endl;
+        }
+        stbi_image_free(data);
+    };
 }
 
 void window_size_callback(GLFWwindow *window, int width, int height)
