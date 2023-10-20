@@ -7,28 +7,39 @@
 #include <fstream>
 #include <string>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 // #############################################################################
 //                           Globals
 // #############################################################################
 
+float g_width = 768.0f;
+float g_height = 768.0f;
+bool g_initialized = false;
+
 // #############################################################################
 //                           Structs
 // #############################################################################
+
+struct Sprite
+{
+    int sizeX = 200;
+    int sizeY = 300;
+    float xPos;
+    float yPos;
+    float dx;
+    float dy;
+};
 
 struct OpenGLContext
 {
     GLuint vaoID;
     GLuint programID;
     GLuint textureID;
+    GLuint projMatrixID;
+    GLuint modelMatrixID;
     Shader shader;
-};
-
-struct Transform
-{
-    int sizeX;
-    int sizeY;
-    float xPos;
-    float yPos;
 };
 
 // #############################################################################
@@ -37,6 +48,9 @@ struct Transform
 void glInit(OpenGLContext *glContext);
 
 void window_size_callback(GLFWwindow *window, int width, int height);
+
+void simulate(float dt, Sprite *sprite);
+void render(float dt, OpenGLContext *glContext, Sprite *sprite);
 
 int main()
 {
@@ -70,20 +84,25 @@ int main()
     }
 
     glViewport(0, 0, 768, 768);
+    glEnable(GL_LINE_SMOOTH);
 
     OpenGLContext glContext = {};
     glInit(&glContext);
+
+    Sprite sprite = {};
+    float deltaTime = 0.0f;
+    float lastFrame = 0.0f;
+
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
+        float currentFrame = (float)glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        simulate(deltaTime, &sprite);
         /* Render here */
-        glClearColor(0, 0, 0, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glUseProgram(glContext.shader.getProgramID());
-        glBindVertexArray(glContext.vaoID);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-
+        render(deltaTime, &glContext, &sprite);
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
 
@@ -98,61 +117,59 @@ int main()
 
 void glInit(OpenGLContext *glContext)
 {
-
-    glContext->programID = glCreateProgram();
-
     // Shaders
     {
         Shader shader = Shader("assets/shaders/shader.vs", "assets/shaders/shader.fs");
         glContext->shader = shader;
         glUseProgram(glContext->shader.getProgramID());
+        glContext->programID = glContext->shader.getProgramID();
     }
 
     //     float verticies[] = {
     // // first triangle
-    //     0.25f, 0.55f, 0.0f,                 1.0f, 1.0f,
-    //     0.25f, -0.25f, 0.0f,                1.0f, 0.0f,
-    //     -0.25f, 0.55f, 0.0f,                0.0f, 1.0f,
+    //       0.0f, 1.0f, 0.0f,                 0.0f, 1.0f,
+    //      1.0f, 0.0f, 0.0f,                1.0f, 0.0f,
+    //      0.0f, 0.0f, 0.0f,                0.0f, 0.0f,
     //  //      second triangle
-    //     0.25f, -0.25f, 0.0f,                1.0f, 0.0f,
-    //     -0.25f, -0.25f, 0.0f,               0.0f, 0.0f,
-    //     -0.25f, 0.55f, 0.0f                 ,0.0f, 1.0f,
+    //    0.0f, 1.0f, 0.0f,                 0.0f, 1.0f,
+    //       1.0f, 1.0f, 0.0f,               1.0f, 1.0f,
+    //      1.0f, 0.0f, 0.0f                 1.0f, 0.0f,
     // };
 
     // my verticies won't lay out nice so :(
     float verticies[] = {
         // first triangle
-        0.25f,
-        0.55f,
-        0.0f,
-        1.0f,
-        1.0f,
-        0.25f,
-        -0.25f,
         0.0f,
         1.0f,
         0.0f,
-        -0.25f,
-        0.55f,
+        0.0f,
+        1.0f,
+        1.0f,
         0.0f,
         0.0f,
         1.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
         //      second triangle
-        0.25f,
-        -0.25f,
         0.0f,
         1.0f,
         0.0f,
-        -0.25f,
-        -0.25f,
         0.0f,
+        1.0f,
+        1.0f,
+        1.0f,
         0.0f,
-        0.0f,
-        -0.25f,
-        0.55f,
+        1.0f,
+        1.0f,
+        1.0f,
         0.0f,
         0.0f,
         1.0f,
+        0.0f,
     };
 
     GLuint VBO;
@@ -163,7 +180,7 @@ void glInit(OpenGLContext *glContext)
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verticies), verticies, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verticies), verticies, GL_DYNAMIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
@@ -175,7 +192,6 @@ void glInit(OpenGLContext *glContext)
     {
         // use stbi library to load image
         int width, height, nrChannels;
-        stbi_set_flip_vertically_on_load(1);
         unsigned char *data = stbi_load("assets/textures/burnt_chili.jpg", &width, &height, &nrChannels, 0);
         if (data)
         {
@@ -199,9 +215,76 @@ void glInit(OpenGLContext *glContext)
         }
         stbi_image_free(data);
     };
+
+    // 2D projection matrix
+    {
+        glContext->projMatrixID = glGetUniformLocation(glContext->programID, "projection");
+        glm::mat4 projection = glm::ortho(0.0f, g_width, g_height, 0.0f, -1.0f, 1.0f);
+        glContext->shader.SetMat4(glContext->projMatrixID, projection);
+    }
+
+    // Model uniform
+    {
+        glContext->modelMatrixID = glGetUniformLocation(glContext->programID, "model");
+    }
+}
+
+void simulate(float dt, Sprite *sprite)
+{
+    // initialize
+    if (!g_initialized)
+    {
+
+        sprite->xPos = g_width / 2;
+        sprite->yPos = g_height / 2;
+        sprite->dx = -200.0f;
+        sprite->dy = 40.0f;
+        g_initialized = true;
+    }
+    // Update velocity
+    sprite->xPos = sprite->xPos + (sprite->dx * dt);
+    sprite->yPos = sprite->yPos + (sprite->dy * dt);
+
+    // if off to left of screen
+    if (sprite->xPos < 0)
+    {
+        sprite->dx = sprite->dx * -1;
+    }
+    // if off to right of screen
+    else if (sprite->xPos + sprite->sizeX > g_width)
+    {
+        sprite->dx = sprite->dx * -1;
+    }
+    // if off of top of the screen
+    if (sprite->yPos < 0)
+    {
+        sprite->dy = sprite->dy * -1;
+    }
+    // if off the bottom of the screen
+    else if (sprite->yPos + sprite->sizeY > g_height)
+    {
+        sprite->dy = sprite->dy * -1;
+    }
+}
+
+void render(float dt, OpenGLContext *glContext, Sprite *sprite)
+{
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(sprite->xPos, sprite->yPos, 0.0f));
+    model = glm::scale(model, glm::vec3(sprite->sizeX, sprite->sizeY, 0.0f));
+    glContext->shader.SetMat4(glContext->modelMatrixID, model);
+
+    glClearColor(0, 0, 0, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glUseProgram(glContext->shader.getProgramID());
+    glBindVertexArray(glContext->vaoID);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 void window_size_callback(GLFWwindow *window, int width, int height)
 {
     glViewport(0, 0, width, height);
+    g_width = (float)width;
+    g_height = (float)height;
 }

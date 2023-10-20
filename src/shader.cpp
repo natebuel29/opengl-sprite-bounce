@@ -90,3 +90,8 @@ uint32_t Shader::getProgramID()
 {
     return programID;
 }
+
+void Shader::SetMat4(GLuint uniformId, glm::mat4 &mat4)
+{
+    glUniformMatrix4fv(uniformId, 1, GL_FALSE, &mat4[0][0]);
+}
