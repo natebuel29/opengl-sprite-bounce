@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <random>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -17,6 +18,9 @@
 float g_width = 768.0f;
 float g_height = 768.0f;
 bool g_initialized = false;
+bool window_size_happened = false;
+constexpr int xVelocity = 200;
+constexpr int yVelocity = 150;
 
 // #############################################################################
 //                           Structs
@@ -42,6 +46,14 @@ struct OpenGLContext
     Shader shader;
 };
 
+glm::vec4 colors[] = {
+    glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
+    glm::vec4(0.0f, 1.0f, 0.0f, 1.0f),
+    glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
+    glm::vec4(1.0f, 1.0f, 0.0f, 1.0f),
+    glm::vec4(1.0f, 0.0f, 1.0f, 1.0f),
+    glm::vec4(0.0f, 1.0f, 1.0f, 1.0f)};
+
 // #############################################################################
 //                           Functions
 // #############################################################################
@@ -62,8 +74,9 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    window = glfwCreateWindow(768, 768, "Sprite Bounce", NULL, NULL);
+    window = glfwCreateWindow((int)g_width, (int)g_height, "Sprite Bounce", NULL, NULL);
 
+    glfwSetWindowSizeCallback(window, window_size_callback);
     if (!window)
     {
         glfwTerminate();
@@ -84,7 +97,6 @@ int main()
     }
 
     glViewport(0, 0, 768, 768);
-    glEnable(GL_LINE_SMOOTH);
 
     OpenGLContext glContext = {};
     glInit(&glContext);
@@ -234,11 +246,17 @@ void simulate(float dt, Sprite *sprite)
     // initialize
     if (!g_initialized)
     {
+        // random direction
+        std::random_device rd;                           // Only used once to initialise (seed) engine
+        std::mt19937 rng(rd());                          // Random-number engine used (Mersenne-Twister in this case)
+        std::uniform_int_distribution<int> uni(0, 2);    // Guaranteed unbiased
+        int randomXDirection = (uni(rng) == 1) ? 1 : -1; // generate random direction
+        int randomYDirection = (uni(rng) == 1) ? 1 : -1; // generate random direction
 
         sprite->xPos = g_width / 2;
         sprite->yPos = g_height / 2;
-        sprite->dx = -200.0f;
-        sprite->dy = 40.0f;
+        sprite->dx = (float)(xVelocity * randomXDirection);
+        sprite->dy = (float)(yVelocity * randomYDirection);
         g_initialized = true;
     }
     // Update velocity
@@ -248,34 +266,46 @@ void simulate(float dt, Sprite *sprite)
     // if off to left of screen
     if (sprite->xPos < 0)
     {
+        sprite->xPos = 0;
         sprite->dx = sprite->dx * -1;
     }
     // if off to right of screen
     else if (sprite->xPos + sprite->sizeX > g_width)
     {
+        sprite->xPos = g_width - sprite->sizeX;
         sprite->dx = sprite->dx * -1;
     }
     // if off of top of the screen
     if (sprite->yPos < 0)
     {
+        sprite->yPos = 0;
         sprite->dy = sprite->dy * -1;
     }
     // if off the bottom of the screen
     else if (sprite->yPos + sprite->sizeY > g_height)
     {
+        sprite->yPos = g_height - sprite->sizeY;
         sprite->dy = sprite->dy * -1;
     }
 }
 
 void render(float dt, OpenGLContext *glContext, Sprite *sprite)
 {
+    glEnable(GL_LINE_SMOOTH);
+
+    if (window_size_happened)
+    {
+        glm::mat4 projection = glm::ortho(0.0f, g_width, g_height, 0.0f, -1.0f, 1.0f);
+        glContext->shader.SetMat4(glContext->projMatrixID, projection);
+        window_size_happened = false;
+    }
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3(sprite->xPos, sprite->yPos, 0.0f));
+    model = glm::translate(model, glm::vec3((int)sprite->xPos, (int)sprite->yPos, 0.0f));
     model = glm::scale(model, glm::vec3(sprite->sizeX, sprite->sizeY, 0.0f));
     glContext->shader.SetMat4(glContext->modelMatrixID, model);
 
     glClearColor(0, 0, 0, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glUseProgram(glContext->shader.getProgramID());
     glBindVertexArray(glContext->vaoID);
@@ -284,7 +314,11 @@ void render(float dt, OpenGLContext *glContext, Sprite *sprite)
 
 void window_size_callback(GLFWwindow *window, int width, int height)
 {
+
+    std::cout << "yoo are we here bitch?" << std::endl;
+
     glViewport(0, 0, width, height);
     g_width = (float)width;
     g_height = (float)height;
+    window_size_happened = true;
 }
