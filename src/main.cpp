@@ -11,6 +11,21 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+// #############################################################################
+//                           Defines
+// #############################################################################
+
+#define RED glm::vec3(1.0f, 0.0f, 0.0f)
+#define GREEN glm::vec3(0.0f, 1.0f, 0.0f)
+#define YELLOW glm::vec3(1.0f, 1.0f, 0.0f)
+#define PURPLE glm::vec3(0.75f, 0.0f, 1.0f)
+#define CYAN glm::vec3(0.0f, 1.0f, 1.0f)
+#define PINK glm::vec3(1.0f, 0.75f, 1.0f)
+#define CLEAR glm::vec3(1.0f, 0.75f, 1.0f)
+
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+
 // #############################################################################
 //                           Globals
 // #############################################################################
@@ -21,6 +36,16 @@ bool g_initialized = false;
 bool window_size_happened = false;
 constexpr int xVelocity = 200;
 constexpr int yVelocity = 150;
+std::random_device rd;  // Only used once to initialise (seed) engine
+std::mt19937 rng(rd()); // Random-number engine used (Mersenne-Twister in this case)
+glm::vec3 colors[] = {
+    RED,
+    GREEN,
+    YELLOW,
+    PURPLE,
+    CYAN,
+    PINK};
+int currentColorIdx;
 
 // #############################################################################
 //                           Structs
@@ -43,16 +68,9 @@ struct OpenGLContext
     GLuint textureID;
     GLuint projMatrixID;
     GLuint modelMatrixID;
+    GLuint colorID;
     Shader shader;
 };
-
-glm::vec4 colors[] = {
-    glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
-    glm::vec4(0.0f, 1.0f, 0.0f, 1.0f),
-    glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
-    glm::vec4(1.0f, 1.0f, 0.0f, 1.0f),
-    glm::vec4(1.0f, 0.0f, 1.0f, 1.0f),
-    glm::vec4(0.0f, 1.0f, 1.0f, 1.0f)};
 
 // #############################################################################
 //                           Functions
@@ -61,8 +79,9 @@ void glInit(OpenGLContext *glContext);
 
 void window_size_callback(GLFWwindow *window, int width, int height);
 
-void simulate(float dt, Sprite *sprite);
+void simulate(float dt, OpenGLContext *glContext, Sprite *sprite);
 void render(float dt, OpenGLContext *glContext, Sprite *sprite);
+void update_color(OpenGLContext *glContext);
 
 int main()
 {
@@ -112,7 +131,7 @@ int main()
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        simulate(deltaTime, &sprite);
+        simulate(deltaTime, &glContext, &sprite);
         /* Render here */
         render(deltaTime, &glContext, &sprite);
         /* Swap front and back buffers */
@@ -239,16 +258,23 @@ void glInit(OpenGLContext *glContext)
     {
         glContext->modelMatrixID = glGetUniformLocation(glContext->programID, "model");
     }
+
+    // Color uniform
+    {
+        std::uniform_int_distribution<int> uni(0, ARRAY_SIZE(colors));
+        currentColorIdx = uni(rng);
+        glm::vec3 currentColor = colors[currentColorIdx];
+        glContext->colorID = glGetUniformLocation(glContext->programID, "color");
+        glContext->shader.SetVec3(glContext->colorID, currentColor);
+    }
 }
 
-void simulate(float dt, Sprite *sprite)
+void simulate(float dt, OpenGLContext *glContext, Sprite *sprite)
 {
     // initialize
     if (!g_initialized)
     {
         // random direction
-        std::random_device rd;                           // Only used once to initialise (seed) engine
-        std::mt19937 rng(rd());                          // Random-number engine used (Mersenne-Twister in this case)
         std::uniform_int_distribution<int> uni(0, 2);    // Guaranteed unbiased
         int randomXDirection = (uni(rng) == 1) ? 1 : -1; // generate random direction
         int randomYDirection = (uni(rng) == 1) ? 1 : -1; // generate random direction
@@ -268,24 +294,28 @@ void simulate(float dt, Sprite *sprite)
     {
         sprite->xPos = 0;
         sprite->dx = sprite->dx * -1;
+        update_color(glContext);
     }
     // if off to right of screen
     else if (sprite->xPos + sprite->sizeX > g_width)
     {
         sprite->xPos = g_width - sprite->sizeX;
         sprite->dx = sprite->dx * -1;
+        update_color(glContext);
     }
     // if off of top of the screen
     if (sprite->yPos < 0)
     {
         sprite->yPos = 0;
         sprite->dy = sprite->dy * -1;
+        update_color(glContext);
     }
     // if off the bottom of the screen
     else if (sprite->yPos + sprite->sizeY > g_height)
     {
         sprite->yPos = g_height - sprite->sizeY;
         sprite->dy = sprite->dy * -1;
+        update_color(glContext);
     }
 }
 
@@ -312,11 +342,15 @@ void render(float dt, OpenGLContext *glContext, Sprite *sprite)
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
+void update_color(OpenGLContext *glContext)
+{
+    currentColorIdx = (currentColorIdx + 1) % ARRAY_SIZE(colors);
+    glm::vec3 currentColor = colors[currentColorIdx];
+    glContext->shader.SetVec3(glContext->colorID, currentColor);
+}
+
 void window_size_callback(GLFWwindow *window, int width, int height)
 {
-
-    std::cout << "yoo are we here bitch?" << std::endl;
-
     glViewport(0, 0, width, height);
     g_width = (float)width;
     g_height = (float)height;

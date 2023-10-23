@@ -19,6 +19,7 @@ public:
 
     uint32_t getProgramID();
     void SetMat4(GLuint uniformId, glm::mat4 &mat4);
+    void SetVec3(GLuint uniformId, glm::vec3 &vec3);
 
     // Will need to setup classes for setting uniforms
 };

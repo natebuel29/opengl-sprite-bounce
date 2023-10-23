@@ -95,3 +95,8 @@ void Shader::SetMat4(GLuint uniformId, glm::mat4 &mat4)
 {
     glUniformMatrix4fv(uniformId, 1, GL_FALSE, &mat4[0][0]);
 }
+
+void Shader::SetVec3(GLuint uniformId, glm::vec3 &vec3)
+{
+    glUniform3fv(uniformId, 1, &vec3[0]);
+}
