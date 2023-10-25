@@ -104,6 +104,7 @@ int main()
 
     /* Make the window's context current */
     glfwMakeContextCurrent(window);
+    // glfwSwapInterval(0); Turn off v sync
 
     gladLoadGL();
 
@@ -124,9 +125,26 @@ int main()
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
 
+    int frameCount = 0;
+    float lastFPSTime = (float)glfwGetTime();
+    float nextFPSTime = (float)glfwGetTime();
+
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
+        // Calculate FPS
+        nextFPSTime = (float)glfwGetTime();
+        frameCount++;
+
+        if (nextFPSTime - lastFPSTime >= 1.0f)
+        {
+            char fpsBuffer[1200] = {};
+            sprintf_s(fpsBuffer, "Sprite Bounce - FPS: %i", (int)frameCount);
+            glfwSetWindowTitle(window, fpsBuffer);
+            frameCount = 0;
+            lastFPSTime = nextFPSTime;
+        }
+
         float currentFrame = (float)glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
