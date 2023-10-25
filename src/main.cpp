@@ -51,7 +51,7 @@ int currentColorIdx;
 //                           Structs
 // #############################################################################
 
-struct Sprite
+struct Texture
 {
     int sizeX = 200;
     int sizeY = 300;
@@ -79,8 +79,8 @@ void glInit(OpenGLContext *glContext);
 
 void window_size_callback(GLFWwindow *window, int width, int height);
 
-void simulate(float dt, OpenGLContext *glContext, Sprite *sprite);
-void render(float dt, OpenGLContext *glContext, Sprite *sprite);
+void simulate(float dt, OpenGLContext *glContext, Texture *texture);
+void render(float dt, OpenGLContext *glContext, Texture *texture);
 void update_color(OpenGLContext *glContext);
 
 int main()
@@ -93,7 +93,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    window = glfwCreateWindow((int)g_width, (int)g_height, "Sprite Bounce", NULL, NULL);
+    window = glfwCreateWindow((int)g_width, (int)g_height, "Texture Bounce", NULL, NULL);
 
     glfwSetWindowSizeCallback(window, window_size_callback);
     if (!window)
@@ -104,7 +104,7 @@ int main()
 
     /* Make the window's context current */
     glfwMakeContextCurrent(window);
-    // glfwSwapInterval(0); Turn off v sync
+    glfwSwapInterval(0); // Turn off v sync
 
     gladLoadGL();
 
@@ -121,7 +121,7 @@ int main()
     OpenGLContext glContext = {};
     glInit(&glContext);
 
-    Sprite sprite = {};
+    Texture texture = {};
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
 
@@ -139,7 +139,7 @@ int main()
         if (nextFPSTime - lastFPSTime >= 1.0f)
         {
             char fpsBuffer[1200] = {};
-            sprintf_s(fpsBuffer, "Sprite Bounce - FPS: %i", (int)frameCount);
+            sprintf_s(fpsBuffer, "Texture Bounce - FPS: %i", (int)frameCount);
             glfwSetWindowTitle(window, fpsBuffer);
             frameCount = 0;
             lastFPSTime = nextFPSTime;
@@ -149,9 +149,9 @@ int main()
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        simulate(deltaTime, &glContext, &sprite);
+        simulate(deltaTime, &glContext, &texture);
         /* Render here */
-        render(deltaTime, &glContext, &sprite);
+        render(deltaTime, &glContext, &texture);
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
 
@@ -287,7 +287,7 @@ void glInit(OpenGLContext *glContext)
     }
 }
 
-void simulate(float dt, OpenGLContext *glContext, Sprite *sprite)
+void simulate(float dt, OpenGLContext *glContext, Texture *texture)
 {
     // initialize
     if (!g_initialized)
@@ -297,47 +297,47 @@ void simulate(float dt, OpenGLContext *glContext, Sprite *sprite)
         int randomXDirection = (uni(rng) == 1) ? 1 : -1; // generate random direction
         int randomYDirection = (uni(rng) == 1) ? 1 : -1; // generate random direction
 
-        sprite->xPos = g_width / 2;
-        sprite->yPos = g_height / 2;
-        sprite->dx = (float)(xVelocity * randomXDirection);
-        sprite->dy = (float)(yVelocity * randomYDirection);
+        texture->xPos = g_width / 2;
+        texture->yPos = g_height / 2;
+        texture->dx = (float)(xVelocity * randomXDirection);
+        texture->dy = (float)(yVelocity * randomYDirection);
         g_initialized = true;
     }
     // Update velocity
-    sprite->xPos = sprite->xPos + (sprite->dx * dt);
-    sprite->yPos = sprite->yPos + (sprite->dy * dt);
+    texture->xPos = texture->xPos + (texture->dx * dt);
+    texture->yPos = texture->yPos + (texture->dy * dt);
 
     // if off to left of screen
-    if (sprite->xPos < 0)
+    if (texture->xPos < 0)
     {
-        sprite->xPos = 0;
-        sprite->dx = sprite->dx * -1;
+        texture->xPos = 0;
+        texture->dx = texture->dx * -1;
         update_color(glContext);
     }
     // if off to right of screen
-    else if (sprite->xPos + sprite->sizeX > g_width)
+    else if (texture->xPos + texture->sizeX > g_width)
     {
-        sprite->xPos = g_width - sprite->sizeX;
-        sprite->dx = sprite->dx * -1;
+        texture->xPos = g_width - texture->sizeX;
+        texture->dx = texture->dx * -1;
         update_color(glContext);
     }
     // if off of top of the screen
-    if (sprite->yPos < 0)
+    if (texture->yPos < 0)
     {
-        sprite->yPos = 0;
-        sprite->dy = sprite->dy * -1;
+        texture->yPos = 0;
+        texture->dy = texture->dy * -1;
         update_color(glContext);
     }
     // if off the bottom of the screen
-    else if (sprite->yPos + sprite->sizeY > g_height)
+    else if (texture->yPos + texture->sizeY > g_height)
     {
-        sprite->yPos = g_height - sprite->sizeY;
-        sprite->dy = sprite->dy * -1;
+        texture->yPos = g_height - texture->sizeY;
+        texture->dy = texture->dy * -1;
         update_color(glContext);
     }
 }
 
-void render(float dt, OpenGLContext *glContext, Sprite *sprite)
+void render(float dt, OpenGLContext *glContext, Texture *texture)
 {
     glEnable(GL_LINE_SMOOTH);
 
@@ -348,8 +348,8 @@ void render(float dt, OpenGLContext *glContext, Sprite *sprite)
         window_size_happened = false;
     }
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3((int)sprite->xPos, (int)sprite->yPos, 0.0f));
-    model = glm::scale(model, glm::vec3(sprite->sizeX, sprite->sizeY, 0.0f));
+    model = glm::translate(model, glm::vec3((int)texture->xPos, (int)texture->yPos, 0.0f));
+    model = glm::scale(model, glm::vec3(texture->sizeX, texture->sizeY, 0.0f));
     glContext->shader.SetMat4(glContext->modelMatrixID, model);
 
     glClearColor(0, 0, 0, 1.0f);
